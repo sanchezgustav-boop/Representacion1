@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>El Taller del Arquitecto — Escape Room de Escuadra y Cartabón</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#16233a;
+  --ink-2:#1f3350;
+  --paper:#ece4d3;
+  --paper-light:#f8f3e7;
+  --brass:#c9a05f;
+  --brass-dark:#a37e3f;
+  --blue-line:#5c86a8;
+  --pencil-red:#bd4438;
+  --green:#4c7d63;
+  --graphite:#302a22;
+  --shadow: 0 14px 34px rgba(10,16,28,.35);
+  --radius: 3px;
+}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+svg{max-width:100%;height:auto;display:block;}
+body{
+  margin:0;
+  min-height:100vh;
+  background:
+    radial-gradient(circle at 15% 10%, rgba(92,134,168,.18), transparent 45%),
+    radial-gradient(circle at 85% 90%, rgba(201,160,95,.12), transparent 40%),
+    repeating-linear-gradient(0deg, rgba(92,134,168,.07) 0 1px, transparent 1px 42px),
+    repeating-linear-gradient(90deg, rgba(92,134,168,.07) 0 1px, transparent 1px 42px),
+    var(--ink);
+  color:var(--paper-light);
+  font-family:'Inter',sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:.001ms !important; transition-duration:.001ms !important;}
+}
+h1,h2,h3,.display{font-family:'Space Grotesk',sans-serif;}
+.mono{font-family:'JetBrains Mono',monospace;}
+button{font-family:'Space Grotesk',sans-serif;cursor:pointer;}
+
+/* ---------- layout shell ---------- */
+.wrap{max-width:880px;margin:0 auto;padding:28px 18px 90px;}
+.topbar{
+  position:sticky;top:0;z-index:20;
+  background:linear-gradient(180deg, var(--ink) 78%, transparent);
+  padding:14px 18px 22px;
+}
+.topbar-inner{max-width:880px;margin:0 auto;}
+.brand{
+  display:flex;align-items:baseline;gap:10px;margin-bottom:14px;flex-wrap:wrap;
+}
+.brand .mark{
+  width:26px;height:26px;flex:none;
+}
+.brand h1{font-size:1.02rem;letter-spacing:.04em;margin:0;font-weight:600;color:var(--paper-light);}
+.brand .sub{font-size:.72rem;color:var(--brass);letter-spacing:.12em;text-transform:uppercase;}
+
+/* T-square progress bar */
+.tsquare{position:relative;height:34px;}
+.tsquare .beam{
+  position:absolute;left:0;right:0;top:15px;height:4px;background:var(--brass-dark);border-radius:2px;
+}
+.tsquare .beam-fill{
+  position:absolute;left:0;top:15px;height:4px;background:var(--brass);border-radius:2px;
+  transition:width .5s cubic-bezier(.4,0,.2,1);
+}
+.ticks{position:absolute;left:0;right:0;top:0;display:flex;justify-content:space-between;}
+.tick{
+  width:34px;height:34px;border-radius:50%;
+  background:var(--ink-2);border:2px solid var(--brass-dark);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.78rem;font-weight:700;color:var(--paper);
+  transition:all .4s;
+}
+.tick.done{background:var(--brass);border-color:var(--brass);color:var(--ink);}
+.tick.active{border-color:var(--paper-light);box-shadow:0 0 0 4px rgba(248,243,231,.12);}
+
+/* ---------- screens ---------- */
+.screen{display:none;}
+.screen.active{display:block;animation:fadein .5s ease;}
+@keyframes fadein{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+
+/* ---------- hero / intro ---------- */
+.hero{
+  padding:38px 0 10px;text-align:left;
+}
+.hero .eyebrow{
+  color:var(--brass);font-size:.75rem;letter-spacing:.18em;text-transform:uppercase;margin-bottom:10px;font-weight:600;
+}
+.hero h2{
+  font-size:clamp(2rem,6vw,3.1rem);line-height:1.05;margin:0 0 18px;color:var(--paper-light);
+}
+.hero h2 em{color:var(--brass);font-style:normal;}
+.hero p{font-size:1.02rem;line-height:1.65;color:#d9d2c1;max-width:60ch;}
+.instrument-stage{
+  display:flex;justify-content:center;align-items:center;margin:30px 0 10px;
+}
+.instrument-stage svg{width:min(360px,90vw);height:auto;}
+.brief-box{
+  background:var(--paper);color:var(--graphite);border-radius:var(--radius);
+  padding:20px 22px;margin:26px 0;box-shadow:var(--shadow);
+  border-left:5px solid var(--brass-dark);
+}
+.brief-box h3{margin:0 0 8px;font-size:.95rem;letter-spacing:.03em;color:var(--ink-2);}
+.brief-box ul{margin:0;padding-left:1.2em;line-height:1.7;}
+.start-btn{
+  margin-top:8px;
+  background:var(--brass);color:var(--ink);border:none;
+  padding:15px 30px;font-size:1rem;font-weight:600;border-radius:2px;
+  letter-spacing:.02em;
+  box-shadow:var(--shadow);
+  transition:transform .15s, background .2s;
+}
+.start-btn:hover{background:#dab674;transform:translateY(-2px);}
+.start-btn:active{transform:translateY(0);}
+
+/* ---------- puzzle card ---------- */
+.puzzle-card{
+  background:var(--paper);color:var(--graphite);border-radius:var(--radius);
+  padding:28px 26px 26px;box-shadow:var(--shadow);position:relative;margin-top:6px;
+}
+.puzzle-card::before{
+  content:"";position:absolute;top:-9px;left:32px;width:16px;height:16px;border-radius:50%;
+  background:var(--brass-dark);box-shadow:0 3px 5px rgba(0,0,0,.35);
+}
+.puzzle-kicker{
+  font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;color:var(--brass-dark);font-weight:700;margin-bottom:6px;
+}
+.puzzle-card h2{font-size:1.5rem;margin:0 0 6px;color:var(--ink-2);}
+.puzzle-intro{color:#4a4232;line-height:1.6;margin-bottom:20px;font-size:.98rem;}
+.puzzle-intro strong{color:var(--pencil-red);}
+
+fieldset{border:none;padding:0;margin:0 0 18px;}
+legend{font-weight:600;font-size:.88rem;margin-bottom:8px;color:var(--ink-2);}
+
+.chip-row{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:6px;}
+.chip{
+  background:var(--paper-light);border:1px solid #d8cdb2;border-radius:2px;
+  padding:12px 14px;min-width:160px;flex:1 1 220px;
+}
+.chip .angle{font-family:'JetBrains Mono',monospace;font-size:1.3rem;font-weight:700;color:var(--ink-2);display:block;margin-bottom:8px;}
+.chip select{
+  width:100%;padding:8px;border-radius:2px;border:1px solid #c7bb9c;background:#fff;font-family:'Inter',sans-serif;font-size:.88rem;
+}
+.chip.correct{border-color:var(--green);background:#e7efe7;}
+.chip.wrong{border-color:var(--pencil-red);background:#f5e6e3;}
+
+.radio-list, .order-list{display:flex;flex-direction:column;gap:10px;}
+.radio-opt{
+  display:flex;align-items:flex-start;gap:10px;background:var(--paper-light);
+  border:1px solid #d8cdb2;border-radius:2px;padding:12px 14px;cursor:pointer;transition:.15s;
+}
+.radio-opt:hover{border-color:var(--brass-dark);}
+.radio-opt input{margin-top:3px;}
+.radio-opt.correct{border-color:var(--green);background:#e7efe7;}
+.radio-opt.wrong{border-color:var(--pencil-red);background:#f5e6e3;}
+
+.order-item{
+  display:flex;align-items:center;gap:12px;background:var(--paper-light);
+  border:1px solid #d8cdb2;border-radius:2px;padding:10px 12px;
+}
+.order-item select{padding:6px;border-radius:2px;border:1px solid #c7bb9c;font-family:'JetBrains Mono',monospace;font-weight:700;}
+.order-item p{margin:0;font-size:.92rem;line-height:1.45;}
+
+.builder{
+  display:flex;gap:26px;flex-wrap:wrap;align-items:center;margin-bottom:18px;
+}
+.builder-controls{flex:1 1 240px;display:flex;flex-direction:column;gap:14px;}
+.builder-svg{flex:1 1 220px;display:flex;justify-content:center;}
+.seg-group{display:flex;gap:8px;flex-wrap:wrap;}
+.seg-btn{
+  border:1px solid #c7bb9c;background:#fff;border-radius:2px;padding:9px 13px;font-size:.86rem;font-weight:600;color:var(--graphite);
+}
+.seg-btn.selected{background:var(--ink-2);color:var(--paper-light);border-color:var(--ink-2);}
+.readout{
+  font-family:'JetBrains Mono',monospace;font-size:1.15rem;background:var(--ink);color:var(--brass);
+  padding:12px 14px;border-radius:2px;text-align:center;
+}
+
+input[type=text].code-input{
+  padding:11px 13px;border-radius:2px;border:1px solid #c7bb9c;font-family:'JetBrains Mono',monospace;
+  font-size:1rem;width:120px;text-align:center;
+}
+
+.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:6px;align-items:center;}
+.btn-primary{
+  background:var(--ink-2);color:var(--paper-light);border:none;padding:12px 24px;border-radius:2px;
+  font-weight:600;font-size:.92rem;letter-spacing:.02em;transition:.15s;
+}
+.btn-primary:hover{background:#294870;}
+.btn-hint{
+  background:transparent;color:var(--brass-dark);border:1px solid var(--brass-dark);padding:11px 18px;border-radius:2px;
+  font-weight:600;font-size:.86rem;
+}
+.btn-hint:hover{background:rgba(163,126,63,.1);}
+.btn-continue{
+  background:var(--green);color:#fff;border:none;padding:12px 24px;border-radius:2px;font-weight:600;font-size:.92rem;
+  display:none;
+}
+.btn-continue.show{display:inline-block;}
+
+.feedback{
+  margin-top:14px;padding:12px 14px;border-radius:2px;font-size:.9rem;line-height:1.55;display:none;
+}
+.feedback.show{display:block;animation:fadein .3s ease;}
+.feedback.ok{background:#e7efe7;color:#2c4d3a;border-left:4px solid var(--green);}
+.feedback.bad{background:#f5e6e3;color:#7a2e24;border-left:4px solid var(--pencil-red);}
+.hint-box{
+  margin-top:12px;background:#f2ead6;border:1px dashed var(--brass-dark);border-radius:2px;padding:12px 14px;
+  font-size:.88rem;color:#5a4a24;display:none;
+}
+.hint-box.show{display:block;}
+.stars{font-size:.82rem;color:var(--brass-dark);margin-top:10px;letter-spacing:.05em;}
+
+/* ---------- victory ---------- */
+.victory{text-align:center;padding:50px 0 20px;}
+.victory .stamp{
+  width:120px;height:120px;margin:0 auto 26px;
+}
+.victory h2{font-size:clamp(1.8rem,5vw,2.6rem);color:var(--paper-light);margin-bottom:10px;}
+.victory p{color:#d9d2c1;max-width:56ch;margin:0 auto 24px;line-height:1.6;}
+.score-panel{
+  background:var(--paper);color:var(--graphite);border-radius:var(--radius);padding:26px;max-width:420px;margin:0 auto 26px;box-shadow:var(--shadow);
+}
+.score-panel h3{margin:0 0 14px;font-size:.9rem;letter-spacing:.05em;color:var(--ink-2);}
+.score-row{display:flex;justify-content:space-between;font-size:.9rem;padding:6px 0;border-bottom:1px solid #ddd2b6;}
+.score-row:last-child{border-bottom:none;}
+.total-score{font-family:'JetBrains Mono',monospace;font-size:2rem;color:var(--brass-dark);margin-top:12px;}
+.restart-btn{
+  background:transparent;border:1px solid var(--brass);color:var(--brass);padding:11px 22px;border-radius:2px;font-weight:600;
+}
+.restart-btn:hover{background:rgba(201,160,95,.12);}
+
+footer{
+  text-align:center;color:#7c8496;font-size:.75rem;padding:30px 0 0;
+}
+
+@media (max-width:640px){
+  .wrap{padding:20px 14px 70px;}
+  .topbar{padding:10px 12px 16px;}
+  .brand{gap:8px;margin-bottom:10px;}
+  .brand h1{font-size:.86rem;}
+  .brand .sub{display:none;}
+  .brand .mark{width:22px;height:22px;}
+
+  .tsquare{height:30px;}
+  .tsquare .beam,.tsquare .beam-fill{top:13px;}
+  .tick{width:26px;height:26px;font-size:.66rem;border-width:1.5px;}
+
+  .hero{padding:20px 0 6px;}
+  .hero p{font-size:.94rem;}
+  .instrument-stage{margin:18px 0 4px;}
+  .brief-box{padding:16px 16px;margin:18px 0;}
+  .brief-box ul{padding-left:1.1em;font-size:.9rem;}
+  .start-btn{width:100%;padding:15px 20px;}
+
+  .puzzle-card{padding:18px 15px 18px;border-radius:2px;}
+  .puzzle-card h2{font-size:1.22rem;}
+  .puzzle-intro{font-size:.9rem;}
+
+  .chip-row{gap:10px;}
+  .chip{min-width:0;flex:1 1 100%;padding:11px 12px;}
+  .chip .angle{font-size:1.15rem;margin-bottom:6px;}
+  .chip select{font-size:16px;padding:10px 8px;}
+
+  .radio-opt{padding:11px 12px;gap:9px;}
+  .radio-opt span{font-size:.88rem;line-height:1.45;}
+
+  .order-item{flex-direction:column;align-items:stretch;gap:8px;padding:12px;}
+  .order-item select{width:100%;font-size:16px;padding:9px;}
+  .order-item p{font-size:.88rem;}
+
+  .builder{flex-direction:column;gap:16px;}
+  .builder-svg svg{width:200px;}
+  .seg-btn{flex:1 1 auto;text-align:center;padding:11px 10px;font-size:.85rem;}
+  .readout{font-size:1rem;padding:11px 10px;word-break:break-word;}
+
+  .actions{flex-direction:column;align-items:stretch;}
+  .actions button{width:100%;}
+  .btn-hint{order:2;}
+  .btn-continue{order:3;}
+
+  .code-input{width:100%;font-size:16px;}
+
+  .feedback{font-size:.86rem;}
+  .hint-box{font-size:.85rem;}
+
+  .victory{padding:34px 0 10px;}
+  .score-panel{padding:20px 16px;max-width:none;}
+  .score-row{font-size:.85rem;}
+  .total-score{font-size:1.7rem;}
+  .restart-btn{width:100%;padding:13px 20px;}
+}
+
+@media (max-width:360px){
+  .tick{width:23px;height:23px;font-size:.6rem;}
+  .brand h1{font-size:.78rem;}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 40 40"><polygon points="4,34 36,34 20,6" fill="none" stroke="#c9a05f" stroke-width="2.4"/></svg>
+      <h1>El Taller del Arquitecto</h1>
+      <span class="sub">Escape room · Escuadra &amp; Cartabón</span>
+    </div>
+    <div class="tsquare" id="tsquare">
+      <div class="beam"></div>
+      <div class="beam-fill" id="beamFill" style="width:0%"></div>
+      <div class="ticks" id="ticks"></div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- INTRO -->
+  <section class="screen active" id="screen-intro">
+    <div class="hero">
+      <div class="eyebrow">Primer semestre · Dibujo técnico</div>
+      <h2>Quedaste encerrado en el taller.<br>Solo <em>tu escuadra y tu cartabón</em> abren la puerta.</h2>
+      <p>Son las 11 de la noche. La entrega de mañana exige planos con ángulos exactos y no tienes transportador a la mano — como en cualquier mesa de dibujo real. La puerta del taller quedó con un cerrojo de cinco combinaciones. Cada una se abre demostrando que entiendes <em>de verdad</em> cómo combinar tus dos únicos instrumentos de ángulos fijos, no solo que memorizaste sus números.</p>
+    </div>
+
+    <div class="instrument-stage">
+      <svg id="heroSvg" viewBox="0 0 320 220"></svg>
+    </div>
+
+    <div class="brief-box">
+      <h3>Antes de empezar</h3>
+      <ul>
+        <li>La <strong>escuadra</strong> es un triángulo de 45°–45°–90°.</li>
+        <li>El <strong>cartabón</strong> es un triángulo de 30°–60°–90°.</li>
+        <li>Usados por separado o combinados (apoyando uno como guía del otro), permiten trazar paralelas, perpendiculares y una familia entera de ángulos sin transportador.</li>
+        <li>Resuelve los 5 retos en orden. Cada uno se desbloquea al superar el anterior. Las pistas están disponibles pero cuestan una estrella.</li>
+      </ul>
+    </div>
+
+    <button class="start-btn" onclick="goTo(1)">Entrar al taller →</button>
+  </section>
+
+  <!-- PUZZLE 1 -->
+  <section class="screen" id="screen-1">
+    <div class="puzzle-card">
+      <div class="puzzle-kicker">Cerrojo 1 de 5</div>
+      <h2>El cajón de los instrumentos</h2>
+      <p class="puzzle-intro">Antes de combinar nada, hay que saber qué da cada instrumento <strong>por sí solo</strong>. Clasifica cada ángulo según cómo se obtiene. Recuerda: solo tienes <em>un</em> ejemplar de cada instrumento (una escuadra, un cartabón).</p>
+
+      <div id="p1-chips" class="chip-row"></div>
+
+      <div class="actions">
+        <button class="btn-primary" onclick="checkPuzzle1()">Verificar clasificación</button>
+        <button class="btn-hint" onclick="showHint(1)">Pedir pista</button>
+        <button class="btn-continue" id="cont-1" onclick="goTo(2)">Abrir cerrojo 2 →</button>
+      </div>
+      <div class="hint-box" id="hint-1">
+        💡 Piensa por separado: la escuadra sola solo puede dar sus propios dos ángulos agudos (y el recto). El cartabón solo, los suyos. Todo lo que <em>no</em> aparezca en ninguna de esas dos listas solo puede salir de sumar o restar un ángulo de cada instrumento.
+      </div>
+      <div class="feedback" id="fb-1"></div>
+      <div class="stars" id="stars-1"></div>
+    </div>
+  </section>
+
+  <!-- PUZZLE 2 -->
+  <section class="screen" id="screen-2">
+    <div class="puzzle-card">
+      <div class="puzzle-kicker">Cerrojo 2 de 5</div>
+      <h2>El ángulo imposible... a simple vista</h2>
+      <p class="puzzle-intro">Necesitas trazar un ángulo de <strong class="mono">15°</strong> desde una línea base. Ni la escuadra ni el cartabón traen ese valor de fábrica. Ajusta el constructor hasta que el resultado marque exactamente 15°.</p>
+
+      <div class="builder">
+        <div class="builder-controls">
+          <div>
+            <div style="font-size:.82rem;font-weight:600;margin-bottom:6px;">Ángulo de escuadra</div>
+            <div class="seg-group" id="p2-esc"></div>
+          </div>
+          <div>
+            <div style="font-size:.82rem;font-weight:600;margin-bottom:6px;">Operación</div>
+            <div class="seg-group" id="p2-op"></div>
+          </div>
+          <div>
+            <div style="font-size:.82rem;font-weight:600;margin-bottom:6px;">Ángulo de cartabón</div>
+            <div class="seg-group" id="p2-cart"></div>
+          </div>
+          <div class="readout" id="p2-readout">— ° + — ° = — °</div>
+        </div>
+        <div class="builder-svg"><svg id="p2Svg" viewBox="0 0 220 160" width="220"></svg></div>
+      </div>
+
+      <fieldset>
+        <legend>¿Por qué el resultado se obtiene restando y no sumando?</legend>
+        <div class="radio-list" id="p2-reasons"></div>
+      </fieldset>
+
+      <div class="actions">
+        <button class="btn-primary" onclick="checkPuzzle2()">Verificar</button>
+        <button class="btn-hint" onclick="showHint(2)">Pedir pista</button>
+        <button class="btn-continue" id="cont-2" onclick="goTo(3)">Abrir cerrojo 3 →</button>
+      </div>
+      <div class="hint-box" id="hint-2">
+        💡 15° no está en la lista de ningún instrumento. Busca dos ángulos —uno de cada instrumento— que estén muy cerca en valor: la diferencia entre ellos es justo lo que necesitas. Hay más de una pareja que funciona.
+      </div>
+      <div class="feedback" id="fb-2"></div>
+      <div class="stars" id="stars-2"></div>
+    </div>
+  </section>
+
+  <!-- PUZZLE 3 -->
+  <section class="screen" id="screen-3">
+    <div class="puzzle-card">
+      <div class="puzzle-kicker">Cerrojo 3 de 5</div>
+      <h2>La pared de planos: trazar una paralela</h2>
+      <p class="puzzle-intro">Un compañero mezcló las tarjetas del procedimiento para trazar una recta <strong>paralela</strong> a una línea dada usando escuadra y cartabón. Ordénalas del 1 al 5.</p>
+
+      <div class="order-list" id="p3-list"></div>
+
+      <div class="actions">
+        <button class="btn-primary" onclick="checkPuzzle3()">Verificar orden</button>
+        <button class="btn-hint" onclick="showHint(3)">Pedir pista</button>
+        <button class="btn-continue" id="cont-3" onclick="goTo(4)">Abrir cerrojo 4 →</button>
+      </div>
+      <div class="hint-box" id="hint-3">
+        💡 Un instrumento se queda quieto y actúa como riel; el otro es el que se apoya sobre la recta original y luego se desliza sin girar. Piensa primero "¿qué se fija?" y después "¿qué se mueve?".
+      </div>
+      <div class="feedback" id="fb-3"></div>
+      <div class="stars" id="stars-3"></div>
+    </div>
+  </section>
+
+  <!-- PUZZLE 4 -->
+  <section class="screen" id="screen-4">
+    <div class="puzzle-card">
+      <div class="puzzle-kicker">Cerrojo 4 de 5</div>
+      <h2>Peritaje: ¿qué salió mal?</h2>
+      <p class="puzzle-intro">Un estudiante de primer semestre intentó trazar 15° a partir de la horizontal, igual que en el cerrojo 2. Al medir su trazo con transportador, resultó <strong class="mono">75°</strong>. Aquí está su construcción:</p>
+
+      <div style="display:flex;justify-content:center;margin:18px 0 22px;">
+        <svg id="p4Svg" viewBox="0 0 260 140" width="260"></svg>
+      </div>
+
+      <fieldset>
+        <legend>¿Cuál fue el error de manejo de instrumentos?</legend>
+        <div class="radio-list" id="p4-options"></div>
+      </fieldset>
+
+      <div class="actions">
+        <button class="btn-primary" onclick="checkPuzzle4()">Verificar diagnóstico</button>
+        <button class="btn-hint" onclick="showHint(4)">Pedir pista</button>
+        <button class="btn-continue" id="cont-4" onclick="goTo(5)">Abrir cerrojo 5 →</button>
+      </div>
+      <div class="hint-box" id="hint-4">
+        💡 Compara los números: ¿de qué operación entre 45° y 30° sale 75°? Ese es el error, no un problema de qué ángulos escogió.
+      </div>
+      <div class="feedback" id="fb-4"></div>
+      <div class="stars" id="stars-4"></div>
+    </div>
+  </section>
+
+  <!-- PUZZLE 5 -->
+  <section class="screen" id="screen-5">
+    <div class="puzzle-card">
+      <div class="puzzle-kicker">Cerrojo final</div>
+      <h2>La cerradura maestra</h2>
+      <p class="puzzle-intro">Para salir necesitas trazar el remate de una cubierta a <strong class="mono">135°</strong> respecto a la horizontal, tal como se pide en el plano de fachada de mañana. Encuentra la combinación de instrumentos que lo logra y escribe el código.</p>
+
+      <fieldset>
+        <legend>Selecciona la combinación correcta</legend>
+        <div class="radio-list" id="p5-options"></div>
+      </fieldset>
+
+      <div style="margin:18px 0;">
+        <div style="font-size:.85rem;font-weight:600;margin-bottom:8px;">Código de salida — escribe los dos ángulos que usaste, separados por un guion (ej: 45-90)</div>
+        <input type="text" class="code-input" id="p5-code" placeholder="00-00">
+      </div>
+
+      <div class="actions">
+        <button class="btn-primary" onclick="checkPuzzle5()">Abrir la puerta</button>
+        <button class="btn-hint" onclick="showHint(5)">Pedir pista</button>
+        <button class="btn-continue" id="cont-5" onclick="goTo('victory')">Salir del taller →</button>
+      </div>
+      <div class="hint-box" id="hint-5">
+        💡 135° es mayor que cualquier ángulo recto. Necesitas sumar el ángulo recto de un instrumento con el agudo mayor del otro. Solo una pareja de la lista sí suma exactamente 135°.
+      </div>
+      <div class="feedback" id="fb-5"></div>
+      <div class="stars" id="stars-5"></div>
+    </div>
+  </section>
+
+  <!-- VICTORY -->
+  <section class="screen" id="screen-victory">
+    <div class="victory">
+      <svg class="stamp" viewBox="0 0 120 120">
+        <circle cx="60" cy="60" r="54" fill="none" stroke="#4c7d63" stroke-width="3"/>
+        <polygon points="30,78 90,78 60,28" fill="none" stroke="#4c7d63" stroke-width="3"/>
+        <text x="60" y="70" text-anchor="middle" font-family="JetBrains Mono" font-size="13" fill="#4c7d63" font-weight="700">135°</text>
+      </svg>
+      <div class="eyebrow" style="color:#c9a05f;">Cerrojo maestro abierto</div>
+      <h2>La puerta del taller cede.</h2>
+      <p>Cinco ángulos, dos instrumentos, cero transportador. Entendiste algo que muchos memorizan sin comprender: la escuadra y el cartabón no son "ángulos fijos" — son una familia de ángulos que se construye combinándolos. Eso es exactamente lo que vas a necesitar en cada lámina de este semestre.</p>
+
+      <div class="score-panel">
+        <h3>Resumen del taller</h3>
+        <div class="score-row"><span>1 · Cajón de instrumentos</span><span id="sum-1">—</span></div>
+        <div class="score-row"><span>2 · El ángulo imposible</span><span id="sum-2">—</span></div>
+        <div class="score-row"><span>3 · Trazar una paralela</span><span id="sum-3">—</span></div>
+        <div class="score-row"><span>4 · Peritaje del error</span><span id="sum-4">—</span></div>
+        <div class="score-row"><span>5 · Cerradura maestra</span><span id="sum-5">—</span></div>
+        <div class="total-score" id="sum-total">0 / 15</div>
+      </div>
+
+      <button class="restart-btn" onclick="restartAll()">Volver a empezar</button>
+    </div>
+  </section>
+
+</div>
+
+<footer>El Taller del Arquitecto · repaso de escuadra y cartabón · dibujo técnico, primer semestre</footer>
+
+<script>
+/* ---------------- state ---------------- */
+const state = {
+  current: 'intro',
+  unlocked: {1:true,2:false,3:false,4:false,5:false},
+  hints: {1:0,2:0,3:0,4:0,5:0},
+  solved: {1:false,2:false,3:false,4:false,5:false}
+};
+
+/* ---------------- top progress ---------------- */
+function renderTicks(){
+  const ticks = document.getElementById('ticks');
+  ticks.innerHTML = '';
+  for(let i=1;i<=5;i++){
+    const d = document.createElement('div');
+    d.className = 'tick' + (state.solved[i] ? ' done' : '') + (state.current===i ? ' active':'');
+    d.textContent = i;
+    ticks.appendChild(d);
+  }
+  const solvedCount = Object.values(state.solved).filter(Boolean).length;
+  document.getElementById('beamFill').style.width = (solvedCount/5*100)+'%';
+}
+
+function goTo(target){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  if(target==='intro'){ document.getElementById('screen-intro').classList.add('active'); state.current='intro'; }
+  else if(target==='victory'){ document.getElementById('screen-victory').classList.add('active'); state.current='victory'; renderVictory(); }
+  else { document.getElementById('screen-'+target).classList.add('active'); state.current=target; }
+  renderTicks();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+/* ---------------- hints ---------------- */
+function showHint(n){
+  document.getElementById('hint-'+n).classList.add('show');
+  if(!state.solved[n]) state.hints[n] = Math.min(2, state.hints[n]+1);
+  renderStars(n);
+}
+function starsFor(n){
+  return Math.max(1, 3-state.hints[n]);
+}
+function renderStars(n){
+  const el = document.getElementById('stars-'+n);
+  if(!el) return;
+  const total = starsFor(n);
+  el.textContent = state.solved[n] ? ('★'.repeat(total)+'☆'.repeat(3-total)+'  puntaje de este cerrojo') : (state.hints[n]>0 ? ('Pistas usadas: '+state.hints[n]+' — puntaje máximo actual: '+total+' ★') : '');
+}
+
+function feedback(n, ok, msg){
+  const el = document.getElementById('fb-'+n);
+  el.className = 'feedback show ' + (ok?'ok':'bad');
+  el.textContent = msg;
+}
+function unlockNext(n){
+  state.solved[n] = true;
+  document.getElementById('cont-'+n).classList.add('show');
+  renderStars(n);
+  renderTicks();
+}
+
+/* ================= SVG helpers ================= */
+function svgNS(tag){return document.createElementNS('http://www.w3.org/2000/svg',tag);}
+
+function drawHero(){
+  const svg = document.getElementById('heroSvg');
+  svg.innerHTML='';
+  // baseline
+  const base = svgNS('line');
+  base.setAttribute('x1',20);base.setAttribute('y1',190);base.setAttribute('x2',300);base.setAttribute('y2',190);
+  base.setAttribute('stroke','#5c86a8');base.setAttribute('stroke-width','2');
+  svg.appendChild(base);
+  // escuadra (triangle 45-45-90)
+  const esc = svgNS('polygon');
+  esc.setAttribute('points','40,190 160,190 160,70');
+  esc.setAttribute('fill','rgba(92,134,168,.22)');
+  esc.setAttribute('stroke','#5c86a8');esc.setAttribute('stroke-width','2');
+  svg.appendChild(esc);
+  // cartabon (triangle 30-60-90)
+  const cart = svgNS('polygon');
+  cart.setAttribute('points','170,190 300,190 170,55');
+  cart.setAttribute('fill','rgba(201,160,95,.22)');
+  cart.setAttribute('stroke','#c9a05f');cart.setAttribute('stroke-width','2');
+  svg.appendChild(cart);
+  const t1 = svgNS('text');t1.setAttribute('x',85);t1.setAttribute('y',210);t1.setAttribute('fill','#5c86a8');t1.setAttribute('font-size','12');t1.setAttribute('font-family','JetBrains Mono');t1.textContent='ESCUADRA 45–45–90';
+  svg.appendChild(t1);
+  const t2 = svgNS('text');t2.setAttribute('x',195);t2.setAttribute('y',210);t2.setAttribute('fill','#c9a05f');t2.setAttribute('font-size','12');t2.setAttribute('font-family','JetBrains Mono');t2.textContent='CARTABÓN 30–60–90';
+  svg.appendChild(t2);
+}
+drawHero();
+
+/* ============ PUZZLE 1 ============ */
+const p1Angles = [
+  {v:30, cls:'cartabon'},
+  {v:45, cls:'escuadra'},
+  {v:75, cls:'combina'},
+  {v:90, cls:'ambos'},
+  {v:120, cls:'combina'},
+  {v:60, cls:'cartabon'}
+];
+const p1Options = [
+  {v:'escuadra', label:'Solo con la escuadra'},
+  {v:'cartabon', label:'Solo con el cartabón'},
+  {v:'ambos', label:'Con cualquiera de los dos, por separado'},
+  {v:'combina', label:'Solo combinando ambos instrumentos'}
+];
+function buildP1(){
+  const wrap = document.getElementById('p1-chips');
+  wrap.innerHTML='';
+  p1Angles.forEach((a,i)=>{
+    const chip = document.createElement('div');
+    chip.className='chip';
+    chip.id='p1chip-'+i;
+    const opts = p1Options.map(o=>`<option value="${o.v}">${o.label}</option>`).join('');
+    chip.innerHTML = `<span class="angle">${a.v}°</span><select id="p1sel-${i}"><option value="">— elige —</option>${opts}</select>`;
+    wrap.appendChild(chip);
+  });
+}
+buildP1();
+function checkPuzzle1(){
+  let allCorrect = true, answered = true;
+  p1Angles.forEach((a,i)=>{
+    const sel = document.getElementById('p1sel-'+i);
+    const chip = document.getElementById('p1chip-'+i);
+    chip.classList.remove('correct','wrong');
+    if(!sel.value){answered=false; return;}
+    if(sel.value===a.cls){ chip.classList.add('correct'); }
+    else { chip.classList.add('wrong'); allCorrect=false; }
+  });
+  if(!answered){ feedback(1,false,'Clasifica los seis ángulos antes de verificar.'); return; }
+  if(allCorrect){
+    feedback(1,true,'Correcto. Distinguiste lo que da cada instrumento en solitario de lo que solo aparece al combinarlos — esa es la base de todo lo que sigue.');
+    unlockNext(1);
+  } else {
+    feedback(1,false,'Algunos ángulos están mal clasificados (marcados en rojo). Revisa: ¿ese valor aparece en la lista de la escuadra, del cartabón, en ambas, o en ninguna?');
+  }
+}
+
+/* ============ PUZZLE 2 ============ */
+const p2State = {esc:null, op:null, cart:null, reason:null};
+function seg(container, options, key){
+  const wrap = document.getElementById(container);
+  wrap.innerHTML='';
+  options.forEach(o=>{
+    const b = document.createElement('button');
+    b.type='button';
+    b.className='seg-btn';
+    b.textContent = o.label;
+    b.onclick = ()=>{
+      [...wrap.children].forEach(c=>c.classList.remove('selected'));
+      b.classList.add('selected');
+      p2State[key]=o.val;
+      updateP2();
+    };
+    wrap.appendChild(b);
+  });
+}
+seg('p2-esc', [{label:'45°',val:45},{label:'90°',val:90}], 'esc');
+seg('p2-op', [{label:'Sumar (+)',val:'+'},{label:'Restar (−)',val:'-'}], 'op');
+seg('p2-cart', [{label:'30°',val:30},{label:'60°',val:60},{label:'90°',val:90}], 'cart');
+
+function updateP2(){
+  const {esc,op,cart} = p2State;
+  const svg = document.getElementById('p2Svg');
+  svg.innerHTML='';
+  const cx=30, cy=140;
+  const base = svgNS('line');
+  base.setAttribute('x1',cx);base.setAttribute('y1',cy);base.setAttribute('x2',200);base.setAttribute('y2',cy);
+  base.setAttribute('stroke','#8a95a8');base.setAttribute('stroke-width','2');
+  svg.appendChild(base);
+  let result = null;
+  if(esc!==null && op!==null && cart!==null){
+    result = op==='+' ? esc+cart : esc-cart;
+    const rad = -result*Math.PI/180;
+    const x2 = cx + 150*Math.cos(rad);
+    const y2 = cy + 150*Math.sin(rad);
+    const ray = svgNS('line');
+    ray.setAttribute('x1',cx);ray.setAttribute('y1',cy);ray.setAttribute('x2',x2);ray.setAttribute('y2',y2);
+    ray.setAttribute('stroke', result===15 ? '#4c7d63' : '#c9a05f');
+    ray.setAttribute('stroke-width','3');
+    svg.appendChild(ray);
+    // arc
+    const arc = svgNS('path');
+    const arcR=34;
+    const largeArc = Math.abs(result)>180?1:0;
+    const ex = cx+arcR*Math.cos(rad), ey = cy+arcR*Math.sin(rad);
+    arc.setAttribute('d',`M ${cx+arcR} ${cy} A ${arcR} ${arcR} 0 ${largeArc} 0 ${ex} ${ey}`);
+    arc.setAttribute('fill','none');arc.setAttribute('stroke','#5c86a8');arc.setAttribute('stroke-width','1.5');
+    svg.appendChild(arc);
+  }
+  const label = svgNS('text');
+  label.setAttribute('x',10);label.setAttribute('y',20);label.setAttribute('font-size','12');
+  label.setAttribute('font-family','JetBrains Mono');label.setAttribute('fill','#302a22');
+  svg.appendChild(label);
+
+  document.getElementById('p2-readout').textContent =
+    (esc??'—')+'° '+(op||'?')+' '+(cart??'—')+'° = '+(result!==null? result+'°':'— °');
+}
+updateP2();
+
+const p2Reasons = [
+  {v:'a', label:'Porque 15° es demasiado pequeño para sumarlo directamente.'},
+  {v:'b', label:'Porque los ángulos de 45° y 30° comparten un lado en común, y la diferencia entre ellos es el ángulo que queda "sobrante" entre ambos trazos.'},
+  {v:'c', label:'Porque restar siempre da ángulos más exactos que sumar.'},
+  {v:'d', label:'Porque el cartabón no puede usarse para sumar ángulos, solo para restarlos.'}
+];
+function buildP2Reasons(){
+  const wrap = document.getElementById('p2-reasons');
+  wrap.innerHTML='';
+  p2Reasons.forEach(r=>{
+    const label = document.createElement('label');
+    label.className='radio-opt';
+    label.id='p2r-'+r.v;
+    label.innerHTML = `<input type="radio" name="p2reason" value="${r.v}"> <span>${r.label}</span>`;
+    label.querySelector('input').onchange = ()=>{p2State.reason=r.v;};
+    wrap.appendChild(label);
+  });
+}
+buildP2Reasons();
+
+function checkPuzzle2(){
+  const {esc,op,cart,reason} = p2State;
+  if(esc===null||op===null||cart===null||!reason){
+    feedback(2,false,'Completa el constructor de ángulo y elige una justificación antes de verificar.');
+    return;
+  }
+  const result = op==='+' ? esc+cart : esc-cart;
+  const numOk = result===15;
+  const reasonOk = reason==='b';
+  document.querySelectorAll('#p2-reasons .radio-opt').forEach(o=>o.classList.remove('correct','wrong'));
+  if(reason){
+    document.getElementById('p2r-'+reason).classList.add(reasonOk?'correct':'wrong');
+  }
+  if(numOk && reasonOk){
+    feedback(2,true,'Exacto: '+esc+'° '+op+' '+cart+'° = 15°. Entendiste que 15° no es un ángulo "de fábrica", sino la diferencia entre dos ángulos que comparten un lado.');
+    unlockNext(2);
+  } else if(!numOk){
+    feedback(2,false,'Tu combinación da '+result+'°, no 15°. Ajusta los valores del constructor — recuerda que puede haber más de una pareja correcta.');
+  } else {
+    feedback(2,false,'El número ya es correcto, pero la justificación no explica bien por qué se resta. Vuelve a leerlas con cuidado.');
+  }
+}
+
+/* ============ PUZZLE 3 ============ */
+const p3Steps = [
+  {id:1, text:'Apoyar un lado del cartabón sobre la mesa, en una posición fija que servirá de riel.'},
+  {id:2, text:'Colocar la escuadra apoyada contra el cartabón, con uno de sus lados coincidiendo exactamente con la recta original.'},
+  {id:3, text:'Sujetar firmemente el cartabón con una mano para que no se mueva.'},
+  {id:4, text:'Deslizar la escuadra sobre el cartabón, sin girarla, hasta la posición donde se necesita la paralela.'},
+  {id:5, text:'Trazar la nueva recta a lo largo del mismo lado de la escuadra que antes coincidía con la línea original.'}
+];
+function shuffle(arr){
+  const a=[...arr];
+  for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+  return a;
+}
+function buildP3(){
+  const wrap = document.getElementById('p3-list');
+  wrap.innerHTML='';
+  const shuffled = shuffle(p3Steps);
+  shuffled.forEach(step=>{
+    const row = document.createElement('div');
+    row.className='order-item';
+    const opts = [1,2,3,4,5].map(n=>`<option value="${n}">${n}</option>`).join('');
+    row.innerHTML = `<select data-id="${step.id}"><option value="">–</option>${opts}</select><p>${step.text}</p>`;
+    wrap.appendChild(row);
+  });
+}
+buildP3();
+function checkPuzzle3(){
+  const selects = document.querySelectorAll('#p3-list select');
+  const values = [...selects].map(s=>s.value);
+  if(values.some(v=>v==='')){ feedback(3,false,'Asigna un número del 1 al 5 a cada tarjeta.'); return; }
+  const nums = values.map(Number);
+  const unique = new Set(nums);
+  if(unique.size!==5){ feedback(3,false,'No repitas números: cada paso debe tener una posición distinta.'); return; }
+  let ok = true;
+  selects.forEach(s=>{
+    const id = Number(s.dataset.id);
+    if(Number(s.value)!==id) ok=false;
+  });
+  if(ok){
+    feedback(3,true,'Orden correcto. Fijaste primero el riel (cartabón), alineaste la escuadra con la recta dada, y solo después la deslizaste sin girarla — así se garantiza que la nueva línea sea realmente paralela.');
+    unlockNext(3);
+  } else {
+    feedback(3,false,'El orden aún no es correcto. Pista de proceso: primero se fija un instrumento como base, luego se alinea el otro con la recta existente, y solo al final se desliza y se traza.');
+  }
+}
+
+/* ============ PUZZLE 4 ============ */
+function drawP4(){
+  const svg = document.getElementById('p4Svg');
+  svg.innerHTML='';
+  const cx=40, cy=110;
+  const base = svgNS('line');
+  base.setAttribute('x1',cx);base.setAttribute('y1',cy);base.setAttribute('x2',230);base.setAttribute('y2',cy);
+  base.setAttribute('stroke','#8a95a8');base.setAttribute('stroke-width','2');
+  svg.appendChild(base);
+  const wrongRad = -75*Math.PI/180;
+  const wx = cx+150*Math.cos(wrongRad), wy = cy+150*Math.sin(wrongRad);
+  const wrongLine = svgNS('line');
+  wrongLine.setAttribute('x1',cx);wrongLine.setAttribute('y1',cy);wrongLine.setAttribute('x2',wx);wrongLine.setAttribute('y2',wy);
+  wrongLine.setAttribute('stroke','#bd4438');wrongLine.setAttribute('stroke-width','3');
+  svg.appendChild(wrongLine);
+  const lbl = svgNS('text');
+  lbl.setAttribute('x',cx+55);lbl.setAttribute('y',cy-70);lbl.setAttribute('font-size','13');
+  lbl.setAttribute('font-family','JetBrains Mono');lbl.setAttribute('fill','#bd4438');lbl.setAttribute('font-weight','700');
+  lbl.textContent='75° obtenido (¡se buscaba 15°!)';
+  svg.appendChild(lbl);
+  const lbl2 = svgNS('text');
+  lbl2.setAttribute('x',cx);lbl2.setAttribute('y',cy+22);lbl2.setAttribute('font-size','11');
+  lbl2.setAttribute('font-family','Inter');lbl2.setAttribute('fill','#302a22');
+  lbl2.textContent='línea base (horizontal)';
+  svg.appendChild(lbl2);
+}
+drawP4();
+const p4Options = [
+  {v:'a', label:'Usó el ángulo de 60° del cartabón en lugar del de 30°.'},
+  {v:'b', label:'Sumó 45° + 30° en lugar de restar 45° − 30°.'},
+  {v:'c', label:'Deslizó el cartabón en vez de la escuadra, cambiando el punto de apoyo.'},
+  {v:'d', label:'Colocó la escuadra al revés, invirtiendo el vértice de referencia.'}
+];
+function buildP4Options(){
+  const wrap = document.getElementById('p4-options');
+  wrap.innerHTML='';
+  p4Options.forEach(o=>{
+    const label = document.createElement('label');
+    label.className='radio-opt';
+    label.id='p4o-'+o.v;
+    label.innerHTML = `<input type="radio" name="p4opt" value="${o.v}"> <span>${o.label}</span>`;
+    label.querySelector('input').onchange=()=>{p4Selected=o.v;};
+    wrap.appendChild(label);
+  });
+}
+let p4Selected=null;
+buildP4Options();
+function checkPuzzle4(){
+  if(!p4Selected){ feedback(4,false,'Elige un diagnóstico antes de verificar.'); return; }
+  document.querySelectorAll('#p4-options .radio-opt').forEach(o=>o.classList.remove('correct','wrong'));
+  document.getElementById('p4o-'+p4Selected).classList.add(p4Selected==='b'?'correct':'wrong');
+  if(p4Selected==='b'){
+    feedback(4,true,'Correcto: 45° + 30° = 75°, no 15°. El error no fue de instrumentos ni de apoyo, fue confundir la operación. Es exactamente el tipo de error que se evita entendiendo el concepto, no memorizando números.');
+    unlockNext(4);
+  } else {
+    feedback(4,false,'Revisa los números: ¿qué operación entre 45° y 30° da 75° exactamente? Las otras opciones describen errores físicos plausibles, pero no producen ese resultado numérico.');
+  }
+}
+
+/* ============ PUZZLE 5 ============ */
+const p5Options = [
+  {v:'a', label:'Escuadra 45° + Cartabón 90° = 135°'},
+  {v:'b', label:'Escuadra 90° + Cartabón 60° = 150°'},
+  {v:'c', label:'Cartabón 60° + Cartabón 90° (usando el cartabón dos veces) = 150°'},
+  {v:'d', label:'Escuadra 45° + Cartabón 60° = 105°'}
+];
+let p5Selected=null;
+function buildP5(){
+  const wrap = document.getElementById('p5-options');
+  wrap.innerHTML='';
+  p5Options.forEach(o=>{
+    const label=document.createElement('label');
+    label.className='radio-opt';
+    label.id='p5o-'+o.v;
+    label.innerHTML=`<input type="radio" name="p5opt" value="${o.v}"> <span>${o.label}</span>`;
+    label.querySelector('input').onchange=()=>{p5Selected=o.v;};
+    wrap.appendChild(label);
+  });
+}
+buildP5();
+function checkPuzzle5(){
+  const code = document.getElementById('p5-code').value.trim();
+  if(!p5Selected){ feedback(5,false,'Selecciona primero la combinación correcta.'); return; }
+  document.querySelectorAll('#p5-options .radio-opt').forEach(o=>o.classList.remove('correct','wrong'));
+  document.getElementById('p5o-'+p5Selected).classList.add(p5Selected==='a'?'correct':'wrong');
+  const codeOk = ['45-90','90-45'].includes(code);
+  if(p5Selected==='a' && codeOk){
+    feedback(5,true,'La cerradura maestra cede: 45° + 90° = 135°. Solo un ejemplar de cada instrumento, sin trucos ni "usarlo dos veces" — la opción (c) es una trampa clásica, porque no tienes dos cartabones.');
+    unlockNext(5);
+  } else if(p5Selected!=='a'){
+    feedback(5,false,'Esa combinación no da 135°, o no es físicamente válida (revisa cuántos ejemplares de cada instrumento tienes). Vuelve a intentarlo.');
+  } else {
+    feedback(5,false,'La combinación es correcta, pero el código no coincide. Escríbelo como "45-90" o "90-45".');
+  }
+}
+
+/* ---------------- victory ---------------- */
+function renderVictory(){
+  let total = 0;
+  for(let i=1;i<=5;i++){
+    const s = state.solved[i] ? starsFor(i) : 0;
+    total += s;
+    document.getElementById('sum-'+i).textContent = state.solved[i] ? ('★'.repeat(s)+'☆'.repeat(3-s)) : 'sin resolver';
+  }
+  document.getElementById('sum-total').textContent = total+' / 15';
+}
+
+function restartAll(){
+  Object.keys(state.unlocked).forEach(k=>state.unlocked[k]=(k=='1'));
+  Object.keys(state.hints).forEach(k=>state.hints[k]=0);
+  Object.keys(state.solved).forEach(k=>state.solved[k]=false);
+  ['1','2','3','4','5'].forEach(n=>{
+    document.getElementById('cont-'+n).classList.remove('show');
+    document.getElementById('fb-'+n).classList.remove('show');
+    document.getElementById('hint-'+n).classList.remove('show');
+    document.getElementById('stars-'+n).textContent='';
+  });
+  p2State.esc=p2State.op=p2State.cart=p2State.reason=null;
+  document.querySelectorAll('.seg-btn').forEach(b=>b.classList.remove('selected'));
+  updateP2();
+  document.querySelectorAll('input[name=p2reason]').forEach(i=>i.checked=false);
+  buildP1(); buildP3(); p4Selected=null; document.querySelectorAll('input[name=p4opt]').forEach(i=>i.checked=false); buildP4Options();
+  p5Selected=null; document.getElementById('p5-code').value=''; buildP5();
+  goTo('intro');
+}
+
+renderTicks();
+</script>
+</body>
+</html>
