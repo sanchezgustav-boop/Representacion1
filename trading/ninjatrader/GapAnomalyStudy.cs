@@ -64,7 +64,7 @@ namespace NinjaTrader.NinjaScript.Indicators
 
 				ThresholdMode = GapStudyThresholdMode.PercentilMovil;
 				FixedThresholdPct = 0.34;
-				PercentileLevel = 96;
+				PercentileLevel = 91.5;
 				LookbackSessions = 252;
 				StartDate = new DateTime(2019, 1, 1);
 				EndDate = new DateTime(2099, 12, 31);
@@ -374,7 +374,7 @@ namespace NinjaTrader.NinjaScript.Indicators
 		public double FixedThresholdPct { get; set; }
 
 		[Range(50, 99.9)]
-		[Display(Name = "Percentil (modo móvil)", Description = "96 => ~4 % de sesiones, similar a los ~100 gaps por década del paper", Order = 3, GroupName = "1. Detección del gap")]
+		[Display(Name = "Percentil (modo móvil)", Description = "91.5 => ~8.5 % de sesiones (~21 operaciones al año), como el paper en 2009-2018 (213 gaps en 10 años con umbral 0.34 %)", Order = 3, GroupName = "1. Detección del gap")]
 		public double PercentileLevel { get; set; }
 
 		[Range(20, 5000)]
