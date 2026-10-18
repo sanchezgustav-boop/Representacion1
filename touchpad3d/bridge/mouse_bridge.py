@@ -112,6 +112,7 @@ class Bridge(object):
         self.cfg, self.inj, self.clock = cfg, inj, clock
         self.mode = None          # None | "orbit" | "pan"
         self.last = 0.0
+        self.zoom_at = -1e9       # instante del ultimo zoom, para no mezclar pan y zoom
         self.armed_until = 0.0    # tras pulsar, espera antes de mover (algunos programas lo necesitan)
         self.rem = {"x": 0.0, "y": 0.0, "wheel": 0.0}
 
@@ -184,9 +185,12 @@ class Bridge(object):
     def handle(self, msg):
         kind = msg.get("type")
         self.last = self.clock()
+        if kind == "pan" and (self.clock() - self.zoom_at) * 1000 < self.cfg.get("zoom_pan_lock_ms", 0):
+            return                # durante un pellizco se ignora el desplazamiento de los dedos
         if kind in ("orbit", "pan"):
             self._drag(kind, float(msg.get("dx", 0)), float(msg.get("dy", 0)))
         elif kind == "zoom":
+            self.zoom_at = self.last
             self._zoom(float(msg.get("factor", 1)))
         elif kind == "extents":
             self.end()
