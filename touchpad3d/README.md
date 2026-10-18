@@ -93,7 +93,7 @@ El panel lateral ajusta sensibilidad e inversión de cada eje y los guarda en el
 
 Validado por el usuario:
 - Simulador en el navegador (touchpad de laptop con Windows): orbitar con toque y arrastre, desplazar con 2 dedos, pellizco.
-- Servidor de Rhino 8: recibe y aplica los gestos del simulador.
+- Servidor de Rhino 8: recibe y aplica los gestos del simulador, tanto desde el navegador de la laptop como desde Safari del iPad (`--lan`).
 - Puente de ratón con Archicad, gestos enviados desde Safari del iPad (`--lan`): orbitar, desplazar y zoom funcionan con navegación por botón derecho.
 
 Pendiente:
