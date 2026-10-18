@@ -91,6 +91,16 @@ El panel lateral ajusta sensibilidad e inversión de cada eje y los guarda en el
 
 ## Estado y límites
 
-- **Sin probar en Rhino ni Xcode**: se escribió en un entorno Linux. Solo se verificó la sintaxis de Python y la lógica de acumulación de mensajes con módulos simulados. Los signos de rotación, la escala del pan y la API de cámara (`SetCameraLocations`, `GetFrustum`, `Magnify`) deben validarse en Rhino 8.
+Validado por el usuario:
+- Simulador en el navegador (touchpad de laptop con Windows): orbitar con toque y arrastre, desplazar con 2 dedos, pellizco.
+- Servidor de Rhino 8: recibe y aplica los gestos del simulador.
+- Puente de ratón con Archicad, gestos enviados desde Safari del iPad (`--lan`): orbitar, desplazar y zoom funcionan con navegación por botón derecho.
+
+Pendiente:
+- App nativa de iPad (Swift): escrita pero sin compilar; no se probó en Xcode. Debe incorporar la lógica del simulador (decidir desplazar o zoom en el gesto de 2 dedos).
+- Modo que intercepte el touchpad del sistema para usarlo directo sobre Archicad y Rhino.
+- Descubrimiento automático (Bonjour), órbita 6DOF y soporte para Grasshopper.
+
+Notas:
 - UDP no cifra ni autentica: usar solo en una red de confianza.
-- Descubrimiento automático (Bonjour), sensibilidad configurable, órbita 6DOF y soporte para Grasshopper quedan para una segunda etapa.
+- El simulador con `--lan` acepta conexiones de la red local: usarlo solo en una red de confianza.
