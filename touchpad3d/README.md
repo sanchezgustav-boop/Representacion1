@@ -61,6 +61,30 @@ El gesto se suelta solo tras `release_ms` sin datos, y el cursor vuelve a su pos
 
 **Pendiente de validar en Archicad:** las combinaciones de navegación por defecto son una suposición (Shift + botón central para orbitar, botón central para desplazar); ajustarlas a la configuración real de la versión instalada. La inyección real solo se verificó por lectura de código: en Linux se probó únicamente el modo `--dry-run`. El zoom durante un arrastre envía la rueda sin soltar el botón; si Archicad lo rechaza, habrá que cambiar esa política.
 
+## Probar con el touchpad de la laptop (simulador)
+
+`tools/touchpad_sim.py` abre en el navegador un lienzo táctil que emite los mismos mensajes UDP que enviará el iPad. Sin dependencias.
+
+```
+python tools/touchpad_sim.py                 # solo esta PC (127.0.0.1)
+python tools/touchpad_sim.py --lan           # también accesible desde la red local
+```
+
+| Gesto del touchpad | Mensaje |
+|---|---|
+| Arrastrar (clic sostenido o toque + arrastre) | `orbit` |
+| Scroll con 2 dedos | `pan` |
+| Pellizco (llega como Ctrl + rueda) | `zoom` |
+| Doble clic | `extents` |
+| Botón derecho o central + arrastre (ratón) | `pan` |
+| Pantalla táctil: 1 dedo / 2 dedos / pellizco / doble toque | `orbit` / `pan` / `zoom` / `extents` |
+
+El panel lateral ajusta sensibilidad e inversión de cada eje y los guarda en el navegador. Cuando estén afinados, esos valores se trasladan como constantes a la app del iPad.
+
+**Con Rhino** (script `rhino/touchpad3d_server.py`): funciona en la misma laptop, con el navegador y Rhino lado a lado, porque el script usa la API de Rhino y no depende del foco.
+
+**Con Archicad** (`bridge/mouse_bridge.py`): el puente mueve el cursor real, que durante la prueba está sobre la ventana del simulador, no sobre Archicad. Desde la laptop solo sirve para ver las acciones con `--dry-run`. Para probar de verdad hay que mandar los gestos desde otro dispositivo: `--lan` y abrir la URL que imprime el simulador en Safari del iPad (sin compilar nada en Xcode).
+
 ## Estado y límites
 
 - **Sin probar en Rhino ni Xcode**: se escribió en un entorno Linux. Solo se verificó la sintaxis de Python y la lógica de acumulación de mensajes con módulos simulados. Los signos de rotación, la escala del pan y la API de cámara (`SetCameraLocations`, `GetFrustum`, `Magnify`) deben validarse en Rhino 8.

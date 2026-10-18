@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Touchpad3D Simulador</title>
+<style>
+  :root { --bg:#14161a; --panel:#1d2026; --line:#2c313a; --text:#e6e8eb; --muted:#8b93a1; --accent:#4c9aff; }
+  * { box-sizing:border-box; }
+  html, body { height:100%; margin:0; background:var(--bg); color:var(--text); font:14px system-ui, sans-serif; overscroll-behavior:none; }
+  body { display:flex; flex-direction:column; }
+  header { display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:8px 12px; background:var(--panel); border-bottom:1px solid var(--line); }
+  button { background:#262b33; color:var(--text); border:1px solid var(--line); border-radius:6px; padding:6px 12px; font:inherit; cursor:pointer; }
+  button:hover { border-color:var(--accent); }
+  .spacer { flex:1; }
+  #status { color:var(--muted); font-size:12px; }
+  main { flex:1; display:flex; min-height:0; }
+  #surface { flex:1; touch-action:none; user-select:none; -webkit-user-select:none; position:relative;
+    background:radial-gradient(circle at 50% 50%, #1b1f26, var(--bg)); }
+  #hint { position:absolute; left:0; right:0; bottom:10px; text-align:center; color:var(--muted); font-size:12px; pointer-events:none; padding:0 12px; }
+  aside { width:260px; padding:12px; background:var(--panel); border-left:1px solid var(--line); overflow:auto; font-size:13px; }
+  aside h2 { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:14px 0 6px; }
+  aside h2:first-child { margin-top:0; }
+  label { display:block; margin:6px 0; }
+  input[type=range] { width:100%; }
+  pre { margin:0; font:12px ui-monospace, Consolas, monospace; color:var(--muted); white-space:pre-wrap; word-break:break-all; }
+  @media (max-width: 720px) { aside { display:none; } }
+</style>
+</head>
+<body>
+<header>
+  <button data-view="top">Top</button>
+  <button data-view="front">Front</button>
+  <button data-view="right">Right</button>
+  <button data-view="perspective">Persp</button>
+  <button id="extents">Extents</button>
+  <span class="spacer"></span>
+  <span id="status">conectando…</span>
+</header>
+<main>
+  <div id="surface"><div id="hint">Arrastrar (1 dedo / clic): orbitar · scroll con 2 dedos: desplazar · pellizco (Ctrl+rueda): zoom · doble clic: extents</div></div>
+  <aside>
+    <h2>Sensibilidad</h2>
+    <label>Orbitar <input type="range" id="gOrbit" min="0.2" max="4" step="0.1"></label>
+    <label>Desplazar <input type="range" id="gPan" min="0.2" max="4" step="0.1"></label>
+    <label>Zoom <input type="range" id="gZoom" min="0.2" max="4" step="0.1"></label>
+    <h2>Invertir</h2>
+    <label><input type="checkbox" id="iOrbitX"> Orbitar horizontal</label>
+    <label><input type="checkbox" id="iOrbitY"> Orbitar vertical</label>
+    <label><input type="checkbox" id="iPanX"> Desplazar horizontal</label>
+    <label><input type="checkbox" id="iPanY"> Desplazar vertical</label>
+    <label><input type="checkbox" id="iZoom"> Zoom</label>
+    <h2>Otros</h2>
+    <label><input type="checkbox" id="wheelZoom"> La rueda hace zoom (ratón común)</label>
+    <h2>Ultimos valores</h2>
+    <pre id="log">—</pre>
+    <h2>Ajustes actuales</h2>
+    <pre id="cfg"></pre>
+  </aside>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const surf = $("surface");
+const DEFAULTS = { gOrbit:1, gPan:1, gZoom:1, iOrbitX:false, iOrbitY:false, iPanX:false, iPanY:false, iZoom:false, wheelZoom:false };
+let S = Object.assign({}, DEFAULTS);
+try { Object.assign(S, JSON.parse(localStorage.getItem("touchpad3d") || "{}")); } catch (e) {}
+
+function save() { try { localStorage.setItem("touchpad3d", JSON.stringify(S)); } catch (e) {} $("cfg").textContent = JSON.stringify(S, null, 1); }
+for (const k of Object.keys(DEFAULTS)) {
+  const el = $(k);
+  if (typeof DEFAULTS[k] === "boolean") { el.checked = S[k]; el.onchange = () => { S[k] = el.checked; save(); }; }
+  else { el.value = S[k]; el.oninput = () => { S[k] = parseFloat(el.value); save(); }; }
+}
+save();
+
+// --- envio: se acumula por cuadro y se manda en un solo POST ---
+let acc = null, pendingFlush = false, lastLog = {};
+function reset() { acc = { ox:0, oy:0, px:0, py:0, zoom:1, view:null, extents:false }; }
+reset();
+function schedule() { if (!pendingFlush) { pendingFlush = true; requestAnimationFrame(flush); } }
+function flush() {
+  pendingFlush = false;
+  const out = [];
+  if (acc.view) out.push({ type:"view", name:acc.view });
+  if (acc.extents) out.push({ type:"extents" });
+  if (acc.ox || acc.oy) out.push({ type:"orbit", dx:acc.ox, dy:acc.oy });
+  if (acc.px || acc.py) out.push({ type:"pan", dx:acc.px, dy:acc.py });
+  if (acc.zoom !== 1) out.push({ type:"zoom", factor:acc.zoom });
+  reset();
+  if (!out.length) return;
+  for (const m of out) lastLog[m.type] = m;
+  $("log").textContent = Object.values(lastLog).map(m => JSON.stringify(m, (k, v) => typeof v === "number" ? +v.toFixed(4) : v)).join("\n");
+  fetch("/send", { method:"POST", body:JSON.stringify(out) }).catch(() => { $("status").textContent = "sin conexion con el servidor"; });
+}
+const sgn = flag => flag ? -1 : 1;
+function orbit(dx, dy) { acc.ox += dx / surf.clientWidth * S.gOrbit * sgn(S.iOrbitX); acc.oy += dy / surf.clientHeight * S.gOrbit * sgn(S.iOrbitY); schedule(); }
+function pan(dx, dy) { acc.px += dx / surf.clientWidth * S.gPan * sgn(S.iPanX); acc.py += dy / surf.clientHeight * S.gPan * sgn(S.iPanY); schedule(); }
+function zoom(f) { if (f > 0 && isFinite(f)) { acc.zoom *= Math.pow(f, S.gZoom * sgn(S.iZoom)); schedule(); } }
+
+// --- punteros: 1 dedo/boton izq = orbitar, boton der/central = pan, 2 dedos tactiles = pan + pellizco ---
+const pts = new Map();
+function snap() {
+  const a = [...pts.values()];
+  if (!a.length) return null;
+  const cx = a.reduce((s, p) => s + p.x, 0) / a.length, cy = a.reduce((s, p) => s + p.y, 0) / a.length;
+  return { cx, cy, dist: a.length >= 2 ? Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y) : 0 };
+}
+let prev = null, tap = { t:0, x:0, y:0, moved:false, last:0 };
+surf.addEventListener("pointerdown", e => {
+  surf.setPointerCapture(e.pointerId);
+  pts.set(e.pointerId, { x:e.clientX, y:e.clientY, type:e.pointerType });
+  prev = snap();
+  if (pts.size === 1) tap = { t:performance.now(), x:e.clientX, y:e.clientY, moved:false, last:tap.last };
+  else tap.moved = true;
+});
+surf.addEventListener("pointermove", e => {
+  const p = pts.get(e.pointerId);
+  if (!p) return;
+  p.x = e.clientX; p.y = e.clientY;
+  const cur = snap();
+  if (pts.size === 1) {
+    if (Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 10) tap.moved = true;
+    if (e.pointerType === "mouse" && (e.buttons & 6)) pan(cur.cx - prev.cx, cur.cy - prev.cy);
+    else orbit(cur.cx - prev.cx, cur.cy - prev.cy);
+  } else if (pts.size >= 2) {
+    pan(cur.cx - prev.cx, cur.cy - prev.cy);
+    if (prev.dist > 0) zoom(cur.dist / prev.dist);
+  }
+  prev = cur;
+});
+function up(e) {
+  const p = pts.get(e.pointerId);
+  pts.delete(e.pointerId);
+  prev = snap();
+  if (p && p.type === "touch" && pts.size === 0 && !tap.moved) {          // doble toque tactil
+    const now = performance.now();
+    if (now - tap.t < 250 && now - tap.last < 350) { acc.extents = true; schedule(); }
+    tap.last = now;
+  }
+}
+surf.addEventListener("pointerup", up);
+surf.addEventListener("pointercancel", up);
+surf.addEventListener("dblclick", e => { if (e.pointerType !== "touch") { acc.extents = true; schedule(); } });
+surf.addEventListener("contextmenu", e => e.preventDefault());
+
+// --- touchpad: scroll con 2 dedos llega como rueda; el pellizco llega como rueda con ctrlKey ---
+surf.addEventListener("wheel", e => {
+  e.preventDefault();
+  const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
+  const dx = e.deltaX * unit, dy = e.deltaY * unit;
+  if (e.ctrlKey || S.wheelZoom) zoom(Math.exp(-dy * 0.01));
+  else pan(-dx, -dy);
+}, { passive:false });
+
+document.querySelectorAll("[data-view]").forEach(b => b.onclick = () => { acc.view = b.dataset.view; schedule(); });
+$("extents").onclick = () => { acc.extents = true; schedule(); };
+fetch("/info").then(r => r.json()).then(i => { $("status").textContent = "→ UDP " + i.target; }).catch(() => { $("status").textContent = "sin conexion con el servidor"; });
+</script>
+</body>
+</html>
