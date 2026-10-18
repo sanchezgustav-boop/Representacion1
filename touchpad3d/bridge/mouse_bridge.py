@@ -112,6 +112,7 @@ class Bridge(object):
         self.cfg, self.inj, self.clock = cfg, inj, clock
         self.mode = None          # None | "orbit" | "pan"
         self.last = 0.0
+        self.pend = {"mode": None, "x": 0.0, "y": 0.0}   # movimiento acumulado antes de pulsar el boton
         self.zoom_at = -1e9       # instante del ultimo zoom, para no mezclar pan y zoom
         self.armed_until = 0.0    # tras pulsar, espera antes de mover (algunos programas lo necesitan)
         self.rem = {"x": 0.0, "y": 0.0, "wheel": 0.0}
@@ -142,12 +143,23 @@ class Bridge(object):
         self.mode = None
 
     def _drag(self, mode, dx, dy):
+        ppw = float(self.cfg[mode]["pixels_per_width"])
+        mx, my = dx * ppw, dy * ppw
         if self.mode != mode:
+            # No se pulsa el boton hasta que haya movimiento real: evita clics sueltos (menu contextual)
+            p = self.pend
+            if p["mode"] != mode:
+                p.update(mode=mode, x=0.0, y=0.0)
+            p["x"] += mx
+            p["y"] += my
+            if math.hypot(p["x"], p["y"]) < self.cfg.get("start_threshold_px", 6):
+                return
+            mx, my = p["x"], p["y"]
+            p["mode"] = None
             self.end()
             self._begin(mode)
-        ppw = float(self.cfg[mode]["pixels_per_width"])
-        self.rem["x"] += dx * ppw
-        self.rem["y"] += dy * ppw
+        self.rem["x"] += mx
+        self.rem["y"] += my
         if self.clock() < self.armed_until:
             return
         ix, iy = int(self.rem["x"]), int(self.rem["y"])
@@ -191,6 +203,9 @@ class Bridge(object):
             self._drag(kind, float(msg.get("dx", 0)), float(msg.get("dy", 0)))
         elif kind == "zoom":
             self.zoom_at = self.last
+            self.pend["mode"] = None
+            if self.cfg.get("zoom_ends_drag", True):
+                self.end()                # la rueda se envia sin boton apretado
             self._zoom(float(msg.get("factor", 1)))
         elif kind == "extents":
             self.end()
