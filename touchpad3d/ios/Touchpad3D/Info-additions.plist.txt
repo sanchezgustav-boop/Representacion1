@@ -1,0 +1,4 @@
+Agregar al Info.plist del target (Xcode: Info > Custom iOS Target Properties):
+
+NSLocalNetworkUsageDescription = "Touchpad3D envia gestos a Rhino en tu red local."
+UISupportedInterfaceOrientations = Landscape (Left y Right)
