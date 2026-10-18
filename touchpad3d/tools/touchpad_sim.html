@@ -17,6 +17,7 @@
   main { flex:1; display:flex; min-height:0; }
   #surface { flex:1; touch-action:none; user-select:none; -webkit-user-select:none; position:relative;
     background:radial-gradient(circle at 50% 50%, #1b1f26, var(--bg)); }
+  #view3d { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
   #hint { position:absolute; left:0; right:0; bottom:10px; text-align:center; color:var(--muted); font-size:12px; pointer-events:none; padding:0 12px; }
   aside { width:260px; padding:12px; background:var(--panel); border-left:1px solid var(--line); overflow:auto; font-size:13px; }
   aside h2 { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:14px 0 6px; }
@@ -38,7 +39,7 @@
   <span id="status">conectando…</span>
 </header>
 <main>
-  <div id="surface"><div id="hint">Arrastrar (1 dedo / clic): orbitar · scroll con 2 dedos: desplazar · pellizco (Ctrl+rueda): zoom · doble clic: extents</div></div>
+  <div id="surface"><canvas id="view3d"></canvas><div id="hint">Arrastrar (1 dedo / clic): orbitar · scroll con 2 dedos: desplazar · pellizco (Ctrl+rueda): zoom · doble clic: extents</div></div>
   <aside>
     <h2>Sensibilidad</h2>
     <label>Orbitar <input type="range" id="gOrbit" min="0.2" max="4" step="0.1"></label>
@@ -83,6 +84,7 @@ reset();
 function schedule() { if (!pendingFlush) { pendingFlush = true; requestAnimationFrame(flush); } }
 function flush() {
   pendingFlush = false;
+  applyCam(acc);
   const out = [];
   if (acc.view) out.push({ type:"view", name:acc.view });
   if (acc.extents) out.push({ type:"extents" });
@@ -99,6 +101,66 @@ const sgn = flag => flag ? -1 : 1;
 function orbit(dx, dy) { acc.ox += dx / surf.clientWidth * S.gOrbit * sgn(S.iOrbitX); acc.oy += dy / surf.clientHeight * S.gOrbit * sgn(S.iOrbitY); schedule(); }
 function pan(dx, dy) { acc.px += dx / surf.clientWidth * S.gPan * sgn(S.iPanX); acc.py += dy / surf.clientHeight * S.gPan * sgn(S.iPanY); schedule(); }
 function zoom(f) { if (f > 0 && isFinite(f)) { acc.zoom *= Math.pow(f, S.gZoom * sgn(S.iZoom)); schedule(); } }
+
+// --- vista 3D local: misma logica de camara que el script de Rhino (turntable, Z arriba) ---
+const cv = $("view3d"), ctx = cv.getContext("2d");
+const FOV = 50 * Math.PI / 180, D2R = Math.PI / 180, MAXEL = 89.9 * D2R;
+const cam = { t:[0, 0, 1.5], az:-60 * D2R, el:30 * D2R, dist:22 };
+const VIEWS = { top:[-90, 89.9], bottom:[-90, -89.9], front:[-90, 0], back:[90, 0], right:[0, 0], left:[180, 0], perspective:[-60, 30] };
+const lines = [];
+const seg = (a, b, col, w) => lines.push({ a, b, col, w: w || 1 });
+for (let i = -10; i <= 10; i++) { seg([i, -10, 0], [i, 10, 0], "#2c313a"); seg([-10, i, 0], [10, i, 0], "#2c313a"); }
+seg([0, 0, 0], [4, 0, 0], "#e5484d", 3); seg([0, 0, 0], [0, 4, 0], "#30a46c", 3); seg([0, 0, 0], [0, 0, 4], "#4c9aff", 3);
+function box(x, y, w, d, h, col) {
+  const p = [[x, y, 0], [x + w, y, 0], [x + w, y + d, 0], [x, y + d, 0], [x, y, h], [x + w, y, h], [x + w, y + d, h], [x, y + d, h]];
+  for (const [i, j] of [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]]) seg(p[i], p[j], col);
+}
+[[-7,-7,2,2,3],[-4,-7,2,3,5],[-7,-3,3,2,2],[-1,-7,2,2,8],[2,-6,3,3,4],[-6,1,2,4,6],[-2,-2,2,2,3],[1,0,2,2,10],[4,-1,3,2,3],[5,3,2,3,5],[-3,4,3,3,4],[1,5,2,2,7]]
+  .forEach(b => box(b[0], b[1], b[2], b[3], b[4], "#7fb0ff"));
+const sub = (a, b) => [a[0]-b[0], a[1]-b[1], a[2]-b[2]], dot = (a, b) => a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+const cross = (a, b) => [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
+const norm = a => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0]/l, a[1]/l, a[2]/l]; };
+function basis() {
+  const ce = Math.cos(cam.el);
+  const off = [ce * Math.cos(cam.az), ce * Math.sin(cam.az), Math.sin(cam.el)];
+  const loc = [cam.t[0] + cam.dist*off[0], cam.t[1] + cam.dist*off[1], cam.t[2] + cam.dist*off[2]];
+  const f = norm([-off[0], -off[1], -off[2]]);
+  const r = norm(cross(f, [0, 0, 1])), u = cross(r, f);
+  return { loc, f, r, u };
+}
+function applyCam(a) {
+  if (a.view) { cam.az = VIEWS[a.view][0] * D2R; cam.el = VIEWS[a.view][1] * D2R; }
+  if (a.extents) { cam.t = [0, 0, 1.5]; cam.dist = 22; }
+  cam.az -= a.ox * Math.PI;
+  cam.el = Math.max(-MAXEL, Math.min(MAXEL, cam.el + a.oy * Math.PI));
+  if (a.px || a.py) {
+    const b = basis(), h = 2 * cam.dist * Math.tan(FOV / 2), w = h * cv.clientWidth / Math.max(1, cv.clientHeight);
+    for (let i = 0; i < 3; i++) cam.t[i] += b.r[i] * (-a.px * w) + b.u[i] * (a.py * h);
+  }
+  cam.dist = Math.max(0.5, Math.min(500, cam.dist / a.zoom));
+  draw();
+}
+function draw() {
+  const dpr = window.devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight;
+  if (!W || !H) return;
+  if (cv.width !== Math.round(W * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  const b = basis(), focal = (H / 2) / Math.tan(FOV / 2), near = 0.1;
+  const toCam = p => { const v = sub(p, b.loc); return [dot(v, b.r), dot(v, b.u), dot(v, b.f)]; };
+  for (const l of lines) {
+    let p = toCam(l.a), q = toCam(l.b);
+    if (p[2] < near && q[2] < near) continue;
+    if (p[2] < near) { const k = (near - p[2]) / (q[2] - p[2]); p = [p[0] + k*(q[0]-p[0]), p[1] + k*(q[1]-p[1]), near]; }
+    if (q[2] < near) { const k = (near - q[2]) / (p[2] - q[2]); q = [q[0] + k*(p[0]-q[0]), q[1] + k*(p[1]-q[1]), near]; }
+    ctx.strokeStyle = l.col; ctx.lineWidth = l.w;
+    ctx.beginPath();
+    ctx.moveTo(W/2 + p[0]/p[2]*focal, H/2 - p[1]/p[2]*focal);
+    ctx.lineTo(W/2 + q[0]/q[2]*focal, H/2 - q[1]/q[2]*focal);
+    ctx.stroke();
+  }
+}
+window.addEventListener("resize", draw);
 
 // --- punteros: 1 dedo/boton izq = orbitar, boton der/central = pan, 2 dedos tactiles = pan + pellizco ---
 const pts = new Map();
@@ -158,6 +220,7 @@ surf.addEventListener("wheel", e => {
 
 document.querySelectorAll("[data-view]").forEach(b => b.onclick = () => { acc.view = b.dataset.view; schedule(); });
 $("extents").onclick = () => { acc.extents = true; schedule(); };
+draw();
 fetch("/info").then(r => r.json()).then(i => { $("status").textContent = "→ UDP " + i.target; }).catch(() => { $("status").textContent = "sin conexion con el servidor"; });
 </script>
 </body>
