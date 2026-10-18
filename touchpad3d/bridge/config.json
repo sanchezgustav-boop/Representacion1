@@ -6,6 +6,7 @@
   "zoom_ends_drag": false,
   "start_threshold_px": 0,
   "restore_cursor": true,
+  "restore_delay_ms": 300,
   "orbit": {"modifiers": ["shift"], "button": "right", "pixels_per_width": 1200},
   "pan":   {"modifiers": [],        "button": "right", "pixels_per_width": 1200},
   "zoom":  {"ticks_per_doubling": 4, "invert": false, "smooth": false},

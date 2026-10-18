@@ -114,12 +114,14 @@ class Bridge(object):
         self.last = 0.0
         self.pend = {"mode": None, "x": 0.0, "y": 0.0}   # movimiento acumulado antes de pulsar el boton
         self.zoom_at = -1e9       # instante del ultimo zoom, para no mezclar pan y zoom
+        self.restore_at = None    # el cursor se devuelve un poco despues de soltar el boton
         self.armed_until = 0.0    # tras pulsar, espera antes de mover (algunos programas lo necesitan)
         self.rem = {"x": 0.0, "y": 0.0, "wheel": 0.0}
 
     # --- gestos de arrastre (boton + modificadores mantenidos) ---
     def _begin(self, mode):
         spec = self.cfg[mode]
+        self.flush_restore()
         if self.cfg.get("restore_cursor", True):
             self.inj.save_cursor()
         for m in spec["modifiers"]:
@@ -139,8 +141,17 @@ class Bridge(object):
         for m in reversed(spec["modifiers"]):
             self.inj.key(key_to_vk(m), False)
         if self.cfg.get("restore_cursor", True):
-            self.inj.restore_cursor()
+            delay = self.cfg.get("restore_delay_ms", 300)
+            if delay <= 0:
+                self.inj.restore_cursor()
+            else:
+                self.restore_at = self.clock() + delay / 1000.0
         self.mode = None
+
+    def flush_restore(self):
+        if self.restore_at is not None:
+            self.inj.restore_cursor()
+            self.restore_at = None
 
     def _drag(self, mode, dx, dy):
         ppw = float(self.cfg[mode]["pixels_per_width"])
@@ -215,7 +226,9 @@ class Bridge(object):
             self._combo(self.cfg.get("views", {}).get(str(msg.get("name", "")).lower()))
 
     def tick(self):
-        """Suelta el gesto si el iPad dejo de enviar datos."""
+        """Suelta el gesto si el iPad dejo de enviar datos y devuelve el cursor a su sitio."""
+        if self.restore_at is not None and self.clock() >= self.restore_at:
+            self.flush_restore()
         if self.mode and (self.clock() - self.last) * 1000 >= self.cfg.get("release_ms", 150):
             self.end()
 
@@ -266,6 +279,7 @@ def main():
         pass
     finally:
         bridge.end()
+        bridge.flush_restore()
 
 
 if __name__ == "__main__":
