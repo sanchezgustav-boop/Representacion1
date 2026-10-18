@@ -1,0 +1,13 @@
+{
+  "port": 9876,
+  "release_ms": 150,
+  "restore_cursor": true,
+  "orbit": {"modifiers": ["shift"], "button": "middle", "pixels_per_width": 1200},
+  "pan":   {"modifiers": [],        "button": "middle", "pixels_per_width": 1200},
+  "zoom":  {"ticks_per_doubling": 4, "invert": false},
+  "extents": null,
+  "views": {
+    "top": null, "bottom": null, "left": null, "right": null,
+    "front": null, "back": null, "perspective": null
+  }
+}
