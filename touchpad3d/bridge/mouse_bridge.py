@@ -42,6 +42,7 @@ class DryInjector(object):
     def key(self, vk, down): self._emit("key", hex(vk), "down" if down else "up")
     def move(self, dx, dy): self._emit("move", dx, dy)
     def wheel(self, ticks): self._emit("wheel", ticks)
+    def wheel_raw(self, delta): self._emit("wheel_raw", delta)
     def save_cursor(self): self._emit("save_cursor")
     def restore_cursor(self): self._emit("restore_cursor")
 
@@ -94,6 +95,7 @@ class WindowsInjector(object):
 
     def move(self, dx, dy): self._mouse(0x0001, dx, dy)
     def wheel(self, ticks): self._mouse(0x0800, data=ticks * 120)
+    def wheel_raw(self, delta): self._mouse(0x0800, data=delta)
 
     def save_cursor(self):
         pt = self.POINT()
@@ -110,6 +112,7 @@ class Bridge(object):
         self.cfg, self.inj, self.clock = cfg, inj, clock
         self.mode = None          # None | "orbit" | "pan"
         self.last = 0.0
+        self.armed_until = 0.0    # tras pulsar, espera antes de mover (algunos programas lo necesitan)
         self.rem = {"x": 0.0, "y": 0.0, "wheel": 0.0}
 
     # --- gestos de arrastre (boton + modificadores mantenidos) ---
@@ -119,7 +122,9 @@ class Bridge(object):
             self.inj.save_cursor()
         for m in spec["modifiers"]:
             self.inj.key(key_to_vk(m), True)
-        self.inj.button(spec["button"], True)
+        if spec.get("button"):
+            self.inj.button(spec["button"], True)
+        self.armed_until = self.clock() + self.cfg.get("press_delay_ms", 40) / 1000.0
         self.mode = mode
         self.rem["x"] = self.rem["y"] = 0.0
 
@@ -127,7 +132,8 @@ class Bridge(object):
         if self.mode is None:
             return
         spec = self.cfg[self.mode]
-        self.inj.button(spec["button"], False)
+        if spec.get("button"):
+            self.inj.button(spec["button"], False)
         for m in reversed(spec["modifiers"]):
             self.inj.key(key_to_vk(m), False)
         if self.cfg.get("restore_cursor", True):
@@ -141,6 +147,8 @@ class Bridge(object):
         ppw = float(self.cfg[mode]["pixels_per_width"])
         self.rem["x"] += dx * ppw
         self.rem["y"] += dy * ppw
+        if self.clock() < self.armed_until:
+            return
         ix, iy = int(self.rem["x"]), int(self.rem["y"])
         self.rem["x"] -= ix
         self.rem["y"] -= iy
@@ -153,6 +161,12 @@ class Bridge(object):
         z = self.cfg["zoom"]
         ticks = math.log(factor, 2) * z["ticks_per_doubling"]
         self.rem["wheel"] += -ticks if z.get("invert") else ticks
+        if z.get("smooth"):                      # fracciones de muesca (1/120), si el programa las acepta
+            n = int(self.rem["wheel"] * 120)
+            self.rem["wheel"] -= n / 120.0
+            if n:
+                self.inj.wheel_raw(n)
+            return
         n = int(self.rem["wheel"])
         self.rem["wheel"] -= n
         if n:
@@ -187,16 +201,33 @@ class Bridge(object):
             self.end()
 
 
+class Verbose(object):
+    """Imprime cada accion salvo los movimientos (para ver que se esta inyectando)."""
+    def __init__(self, inner):
+        self.inner = inner
+
+    def __getattr__(self, name):
+        fn = getattr(self.inner, name)
+
+        def call(*a):
+            if name != "move":
+                print(">", name, *a)
+            return fn(*a)
+        return call
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json"))
+    ap.add_argument("--verbose", action="store_true", help="imprime botones, teclas y rueda inyectados")
     ap.add_argument("--dry-run", action="store_true", help="solo imprime las acciones")
     args = ap.parse_args()
     with open(args.config, encoding="utf-8") as f:
         cfg = json.load(f)
     if not args.dry_run and os.name != "nt":
         sys.exit("La inyeccion real solo esta soportada en Windows. Use --dry-run para probar.")
-    bridge = Bridge(cfg, DryInjector() if args.dry_run else WindowsInjector())
+    inj = DryInjector() if args.dry_run else WindowsInjector()
+    bridge = Bridge(cfg, Verbose(inj) if args.verbose else inj)
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind(("0.0.0.0", cfg.get("port", 9876)))

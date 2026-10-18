@@ -57,6 +57,8 @@ El servidor acumula los deltas recibidos entre cuadros y los aplica una sola vez
 | Pellizco | Rueda del ratón (`ticks_per_doubling`, `invert`) |
 | Extents / vistas | Combinaciones de teclas; vienen en `null` y hay que asignarlas, ej. `["ctrl","shift","f"]` |
 
+Opciones de ajuste: `press_delay_ms` (espera tras pulsar antes de mover), `zoom.smooth` (rueda en fracciones de muesca), `button: null` (gesto solo con teclas) y `--verbose` (muestra botones, teclas y rueda inyectados).
+
 El gesto se suelta solo tras `release_ms` sin datos, y el cursor vuelve a su posición (`restore_cursor`). Probar sin inyectar: `python bridge/mouse_bridge.py --dry-run`.
 
 **Pendiente de validar en Archicad:** las combinaciones de navegación por defecto son una suposición (Shift + botón central para orbitar, botón central para desplazar); ajustarlas a la configuración real de la versión instalada. La inyección real solo se verificó por lectura de código: en Linux se probó únicamente el modo `--dry-run`. El zoom durante un arrastre envía la rueda sin soltar el botón; si Archicad lo rechaza, habrá que cambiar esa política.
