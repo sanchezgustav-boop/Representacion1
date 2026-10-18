@@ -52,6 +52,9 @@
     <label><input type="checkbox" id="iZoom"> Zoom</label>
     <h2>Otros</h2>
     <label><input type="checkbox" id="wheelZoom"> La rueda hace zoom (ratón común)</label>
+    <label><input type="checkbox" id="ctrlPan"> Ctrl+rueda desplaza (si tu touchpad envia el scroll de 2 dedos como pellizco)</label>
+    <h2>Rueda (diagnostico)</h2>
+    <pre id="raw">mueve 2 dedos sobre el lienzo</pre>
     <h2>Ultimos valores</h2>
     <pre id="log">—</pre>
     <h2>Ajustes actuales</h2>
@@ -61,7 +64,7 @@
 <script>
 const $ = id => document.getElementById(id);
 const surf = $("surface");
-const DEFAULTS = { gOrbit:1, gPan:1, gZoom:1, iOrbitX:false, iOrbitY:false, iPanX:false, iPanY:false, iZoom:false, wheelZoom:false };
+const DEFAULTS = { gOrbit:1, gPan:1, gZoom:1, iOrbitX:false, iOrbitY:false, iPanX:false, iPanY:false, iZoom:false, wheelZoom:false, ctrlPan:false };
 let S = Object.assign({}, DEFAULTS);
 try { Object.assign(S, JSON.parse(localStorage.getItem("touchpad3d") || "{}")); } catch (e) {}
 
@@ -148,7 +151,8 @@ surf.addEventListener("wheel", e => {
   e.preventDefault();
   const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
   const dx = e.deltaX * unit, dy = e.deltaY * unit;
-  if (e.ctrlKey || S.wheelZoom) zoom(Math.exp(-dy * 0.01));
+  $("raw").textContent = "deltaX=" + e.deltaX.toFixed(1) + "  deltaY=" + e.deltaY.toFixed(1) + "\ndeltaMode=" + e.deltaMode + "  ctrlKey=" + e.ctrlKey;
+  if ((e.ctrlKey && !S.ctrlPan) || S.wheelZoom) zoom(Math.exp(-dy * 0.01));
   else pan(-dx, -dy);
 }, { passive:false });
 
