@@ -56,6 +56,7 @@
     <label><input type="checkbox" id="wheelZoom"> La rueda hace zoom (ratón común)</label>
     <label><input type="checkbox" id="ctrlPan"> Ctrl+rueda desplaza (si tu touchpad envia el scroll de 2 dedos como pellizco)</label>
     <label><input type="checkbox" id="hoverOrbit"> Orbitar al mover 1 dedo sin hacer clic (o mantener Shift)</label>
+    <label><input type="checkbox" id="pinchPan"> Permitir desplazar y zoom a la vez con 2 dedos</label>
     <h2>Rueda (diagnostico)</h2>
     <pre id="raw">mueve 2 dedos sobre el lienzo</pre>
     <h2>Ultimos valores</h2>
@@ -67,7 +68,7 @@
 <script>
 const $ = id => document.getElementById(id);
 const surf = $("surface");
-const DEFAULTS = { gOrbit:1, gPan:1, gZoom:1, iOrbitX:false, iOrbitY:false, iPanX:false, iPanY:false, iZoom:false, wheelZoom:false, ctrlPan:false, hoverOrbit:false };
+const DEFAULTS = { gOrbit:1, gPan:1, gZoom:1, iOrbitX:false, iOrbitY:false, iPanX:false, iPanY:false, iZoom:false, wheelZoom:false, ctrlPan:false, hoverOrbit:false, pinchPan:false };
 let S = Object.assign({}, DEFAULTS);
 try { Object.assign(S, JSON.parse(localStorage.getItem("touchpad3d") || "{}")); } catch (e) {}
 
@@ -172,11 +173,12 @@ function snap() {
   const cx = a.reduce((s, p) => s + p.x, 0) / a.length, cy = a.reduce((s, p) => s + p.y, 0) / a.length;
   return { cx, cy, dist: a.length >= 2 ? Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y) : 0 };
 }
-let prev = null, tap = { t:0, x:0, y:0, moved:false, last:0 };
+let g2 = null, prev = null, tap = { t:0, x:0, y:0, moved:false, last:0 };
 surf.addEventListener("pointerdown", e => {
   surf.setPointerCapture(e.pointerId);
   pts.set(e.pointerId, { x:e.clientX, y:e.clientY, type:e.pointerType });
   prev = snap();
+  g2 = pts.size === 2 ? { mode:null, cx0:prev.cx, cy0:prev.cy, d0:prev.dist } : null;
   $("drag").textContent = "arrastre: SI"; $("drag").style.color = "var(--accent)";
   if (pts.size === 1) tap = { t:performance.now(), x:e.clientX, y:e.clientY, moved:false, last:tap.last };
   else tap.moved = true;
@@ -194,8 +196,23 @@ surf.addEventListener("pointermove", e => {
     if (e.pointerType === "mouse" && (e.buttons & 6)) pan(cur.cx - prev.cx, cur.cy - prev.cy);
     else orbit(cur.cx - prev.cx, cur.cy - prev.cy);
   } else if (pts.size >= 2) {
-    pan(cur.cx - prev.cx, cur.cy - prev.cy);
-    if (prev.dist > 0) zoom(cur.dist / prev.dist);
+    if (S.pinchPan || !g2) {
+      pan(cur.cx - prev.cx, cur.cy - prev.cy);
+      if (prev.dist > 0) zoom(cur.dist / prev.dist);
+    } else {
+      // El gesto de 2 dedos se decide al inicio (desplazar o zoom) y se mantiene hasta soltar.
+      // Se compara el desplazamiento neto desde el inicio: los eventos llegan dedo por dedo y
+      // el movimiento por evento mezclaria pan y zoom.
+      if (!g2.mode) {
+        const sp = Math.hypot(cur.cx - g2.cx0, cur.cy - g2.cy0), sz = Math.abs(cur.dist - g2.d0);
+        if (Math.max(sp, sz) >= 10) {
+          g2.mode = sz > sp ? "zoom" : "pan";
+          if (g2.mode === "pan") pan(cur.cx - g2.cx0, cur.cy - g2.cy0);
+          else if (g2.d0 > 0) zoom(cur.dist / g2.d0);
+        }
+      } else if (g2.mode === "pan") pan(cur.cx - prev.cx, cur.cy - prev.cy);
+      else if (prev.dist > 0) zoom(cur.dist / prev.dist);
+    }
   }
   prev = cur;
 });
@@ -203,6 +220,7 @@ function up(e) {
   const p = pts.get(e.pointerId);
   pts.delete(e.pointerId);
   prev = snap();
+  if (pts.size < 2) g2 = null;
   if (!pts.size) { $("drag").textContent = "arrastre: no"; $("drag").style.color = "var(--muted)"; }
   if (p && p.type === "touch" && pts.size === 0 && !tap.moved) {          // doble toque tactil
     const now = performance.now();

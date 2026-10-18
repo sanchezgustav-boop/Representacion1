@@ -57,7 +57,7 @@ El servidor acumula los deltas recibidos entre cuadros y los aplica una sola vez
 | Pellizco | Rueda del ratón (`ticks_per_doubling`, `invert`) |
 | Extents / vistas | Combinaciones de teclas; vienen en `null` y hay que asignarlas, ej. `["ctrl","shift","f"]` |
 
-Para que el pellizco no mezcle desplazamiento y zoom, el puente no pulsa el botón hasta que hay movimiento real (`start_threshold_px`), suelta el botón antes de enviar la rueda (`zoom_ends_drag`) e ignora el desplazamiento tras un zoom (`zoom_pan_lock_ms`).
+Opciones experimentales, desactivadas por defecto porque en pruebas con Archicad empeoraron el comportamiento: `start_threshold_px`, `zoom_ends_drag` y `zoom_pan_lock_ms`. La separación entre desplazar y zoom con 2 dedos se hace en el simulador: decide el modo según el movimiento neto de los primeros 10 px y lo mantiene hasta soltar (casilla "Permitir desplazar y zoom a la vez" para desactivarlo).
 
 Opciones de ajuste: `press_delay_ms` (espera tras pulsar antes de mover), `zoom.smooth` (rueda en fracciones de muesca), `button: null` (gesto solo con teclas) y `--verbose` (muestra botones, teclas y rueda inyectados).
 
