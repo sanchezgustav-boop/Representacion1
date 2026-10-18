@@ -36,6 +36,7 @@
   <button data-view="perspective">Persp</button>
   <button id="extents">Extents</button>
   <span class="spacer"></span>
+  <span id="drag" style="color:var(--muted);font-size:12px">arrastre: no</span>
   <span id="status">conectando…</span>
 </header>
 <main>
@@ -54,6 +55,7 @@
     <h2>Otros</h2>
     <label><input type="checkbox" id="wheelZoom"> La rueda hace zoom (ratón común)</label>
     <label><input type="checkbox" id="ctrlPan"> Ctrl+rueda desplaza (si tu touchpad envia el scroll de 2 dedos como pellizco)</label>
+    <label><input type="checkbox" id="hoverOrbit"> Orbitar al mover 1 dedo sin hacer clic (o mantener Shift)</label>
     <h2>Rueda (diagnostico)</h2>
     <pre id="raw">mueve 2 dedos sobre el lienzo</pre>
     <h2>Ultimos valores</h2>
@@ -65,7 +67,7 @@
 <script>
 const $ = id => document.getElementById(id);
 const surf = $("surface");
-const DEFAULTS = { gOrbit:1, gPan:1, gZoom:1, iOrbitX:false, iOrbitY:false, iPanX:false, iPanY:false, iZoom:false, wheelZoom:false, ctrlPan:false };
+const DEFAULTS = { gOrbit:1, gPan:1, gZoom:1, iOrbitX:false, iOrbitY:false, iPanX:false, iPanY:false, iZoom:false, wheelZoom:false, ctrlPan:false, hoverOrbit:false };
 let S = Object.assign({}, DEFAULTS);
 try { Object.assign(S, JSON.parse(localStorage.getItem("touchpad3d") || "{}")); } catch (e) {}
 
@@ -175,12 +177,16 @@ surf.addEventListener("pointerdown", e => {
   surf.setPointerCapture(e.pointerId);
   pts.set(e.pointerId, { x:e.clientX, y:e.clientY, type:e.pointerType });
   prev = snap();
+  $("drag").textContent = "arrastre: SI"; $("drag").style.color = "var(--accent)";
   if (pts.size === 1) tap = { t:performance.now(), x:e.clientX, y:e.clientY, moved:false, last:tap.last };
   else tap.moved = true;
 });
 surf.addEventListener("pointermove", e => {
   const p = pts.get(e.pointerId);
-  if (!p) return;
+  if (!p) {
+    if (e.pointerType === "mouse" && (S.hoverOrbit || e.shiftKey)) orbit(e.movementX, e.movementY);
+    return;
+  }
   p.x = e.clientX; p.y = e.clientY;
   const cur = snap();
   if (pts.size === 1) {
@@ -197,6 +203,7 @@ function up(e) {
   const p = pts.get(e.pointerId);
   pts.delete(e.pointerId);
   prev = snap();
+  if (!pts.size) { $("drag").textContent = "arrastre: no"; $("drag").style.color = "var(--muted)"; }
   if (p && p.type === "touch" && pts.size === 0 && !tap.moved) {          // doble toque tactil
     const now = performance.now();
     if (now - tap.t < 250 && now - tap.last < 350) { acc.extents = true; schedule(); }
